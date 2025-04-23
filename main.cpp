@@ -29,11 +29,9 @@ int main()
     }
 
     auto queryBuilder = adapter.createQueryBuilder();
-    auto query = queryBuilder->select({"u.id", "u.email", "u.username", "p.fullname", "p.bio"}) // auto-qualifies as u.id, u.email, ...
-                     .alias("users", "u")
-                     .from("users")
-                     .alias("profile", "p")
-                     .join("profile", "u.id=p.user_id")
+    auto query = queryBuilder->count("*","total")
+                     .from("profile")
+                     .where("user_id=1")
                      .build();
 
     std::cout << query << std::endl;

@@ -38,7 +38,25 @@ namespace ORM
         return *this;
     }
 
-    
+    QueryBuilder &MySQLQueryBuilder::count(const std::string &column, const std::string &alias)
+    {
+        std::string countExpr = "COUNT(";
+        if (column.find('.') == std::string::npos && !lastAlias_.empty())
+        {
+            countExpr += lastAlias_ + "." + column;
+        }
+        else
+        {
+            countExpr += column;
+        }
+        countExpr+=")";
+        if (!alias.empty())
+        {
+            countExpr += " AS " + alias;
+        }
+        selectColumns_.push_back(countExpr);
+        return *this;
+    }
 
     QueryBuilder &MySQLQueryBuilder::join(const std::string &table, const std::string &condition, const std::string &type)
     {

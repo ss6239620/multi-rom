@@ -158,6 +158,7 @@ namespace ORM
         virtual QueryBuilder &select(const std::vector<std::string> &columns = {"*"}) = 0;
         // Table name
         virtual QueryBuilder &from(const std::string &table) = 0;
+        virtual QueryBuilder &count(const std::string &column, const std::string &alias) = 0;
         virtual QueryBuilder &alias(const std::string &table, const std::string &alias) = 0;
         // JOIN operations
         virtual QueryBuilder &join(const std::string &table, const std::string &condition, const std::string &type = "INNER") = 0;

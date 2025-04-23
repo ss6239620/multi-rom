@@ -10,7 +10,8 @@ namespace ORM
         MySQLQueryBuilder(MYSQL *connection);
 
         QueryBuilder &select(const std::vector<std::string> &columns = {"*"}) override;
-        virtual QueryBuilder &from(const std::string &table) override;
+        QueryBuilder &from(const std::string &table) override;
+        QueryBuilder& count(const std::string& column = "*", const std::string& alias = "") override;
         QueryBuilder &alias(const std::string &table, const std::string &alias) override;   
 
         QueryBuilder &join(const std::string &table, const std::string &condition, const std::string &type = "INNER") override;
