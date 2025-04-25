@@ -11,8 +11,14 @@ namespace ORM
 
         QueryBuilder &select(const std::vector<std::string> &columns = {"*"}) override;
         QueryBuilder &from(const std::string &table) override;
-        QueryBuilder& count(const std::string& column = "*", const std::string& alias = "") override;
-        QueryBuilder &alias(const std::string &table, const std::string &alias) override;   
+        QueryBuilder &alias(const std::string &table, const std::string &alias) override;
+
+        // Aggregate functions
+        QueryBuilder &count(const std::string &column = "*", const std::string &alias = "") override;
+        QueryBuilder &average(const std::string &column, const std::string &alias) override;
+        // QueryBuilder &sum(const std::string &column, const std::string &alias) override;
+        // QueryBuilder &min(const std::string &column, const std::string &alias) override;
+        // QueryBuilder &max(const std::string &column, const std::string &alias) override;
 
         QueryBuilder &join(const std::string &table, const std::string &condition, const std::string &type = "INNER") override;
         QueryBuilder &leftJoin(const std::string &table, const std::string &condition) override;

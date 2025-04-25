@@ -1,7 +1,8 @@
-#include "include/orm/MySQLAdapter.h"
+#include "include/orm/MY_SQL/MySQLAdapter.h"
 #include "include/orm/ModelMacros.h"
 #include <iostream>
-#include "include/orm/utils.h"
+#include "utils/utils.h"
+#include "serializer/jsonparser.h"
 
 BEGIN_MODEL_DEFINITION(User, "users")
 FIELD(id, INTEGER, .primary_key = true, .auto_increment = true)
@@ -29,14 +30,24 @@ int main()
     }
 
     auto queryBuilder = adapter.createQueryBuilder();
-    auto query = queryBuilder->count("*","total")
-                     .from("profile")
-                     .where("user_id=1")
-                     .build();
+    auto query = queryBuilder->alias("users", "u")
+    .select({"email", "username",})
+    .average("is_active", "active")
+    .count("id", "cnt")
+    .from("users")
+    .alias("profile", "p")
+    .select({"bio", "fullname",})
+    .join("profile", "u.id = p.user_id")
+    .groupBy({"u.username", "u.email", "p.bio", "p.fullname"})
+    .build();
 
-    std::cout << query << std::endl;
+    std::cout << query << std::endl; 
+    
 
-    printRows(adapter.fetchAllFromQuery(query));
+    auto rows = adapter.fetchAllFromQuery(query);
+    JSON result = serializationTOJSONNode(rows);
+
+    std::cout << result << std::endl;
 
     adapter.disconnect();
     return 0;

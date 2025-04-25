@@ -20,6 +20,7 @@ namespace ORM
     QueryBuilder &MySQLQueryBuilder::alias(const std::string &table, const std::string &alias)
     {
         aliasMap_[table] = alias;
+        lastAlias_ = alias;
         return *this;
     }
 
@@ -49,12 +50,32 @@ namespace ORM
         {
             countExpr += column;
         }
-        countExpr+=")";
+        countExpr += ")";
         if (!alias.empty())
         {
             countExpr += " AS " + alias;
         }
         selectColumns_.push_back(countExpr);
+        return *this;
+    }
+
+    QueryBuilder &MySQLQueryBuilder::average(const std::string &column, const std::string &alias)
+    {
+        std::string str = "AVG(";
+        if (column.find('.') == std::string::npos && !lastAlias_.empty())
+        {
+            str += lastAlias_ + "." + column;
+        }
+        else
+        {
+            str += column;
+        }
+        str += ")";
+        if (!alias.empty())
+        {
+            str += " AS " + alias;
+        }
+        selectColumns_.push_back(str);
         return *this;
     }
 

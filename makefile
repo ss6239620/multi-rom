@@ -7,30 +7,47 @@ SRC_DIR = .
 BUILD_DIR = build
 BIN_DIR = bin
 
-SRCS = $(wildcard $(SRC_DIR)/*.cpp)
-OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRCS))
+MYSQL_INCLUDE = /usr/include/mysql
+ORM_DIR = $(INC_DIR)/orm
+MYSQL_SRC_DIR = $(ORM_DIR)/MY_SQL
+UTILS_DIR = $(INC_DIR)/utils
+SERIALIZER_SRC_DIR = $(INC_DIR)/serializer
+
+INCLUDES = -I$(INC_DIR) -I$(MYSQL_INCLUDE) -I$(ORM_DIR) -I$(MYSQL_SRC_DIR) -I$(UTILS_DIR) -I$(SERIALIZER_SRC_DIR)
+
+# Source files
+MAIN_SRCS = $(wildcard $(SRC_DIR)/*.cpp)
+MYSQL_SRCS = $(wildcard $(MYSQL_SRC_DIR)/*.cpp)
+SERIALIZER_SRCS = $(wildcard $(SERIALIZER_SRC_DIR)/*.cpp)
+
+# Object files
+MAIN_OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(MAIN_SRCS))
+MYSQL_OBJS = $(patsubst $(MYSQL_SRC_DIR)/%.cpp,$(BUILD_DIR)/orm/MY_SQL/%.o,$(MYSQL_SRCS))
+SERIALIZER_OBJS = $(patsubst $(SERIALIZER_SRC_DIR)/%.cpp,$(BUILD_DIR)/serializer/%.o,$(SERIALIZER_SRCS))
+
+OBJS = $(MAIN_OBJS) $(MYSQL_OBJS) $(SERIALIZER_OBJS)
 
 TARGET = $(BIN_DIR)/orm_demo
 
-MYSQL_INCLUDE = /usr/include/mysql
-INCLUDES = -I$(INC_DIR) -I$(MYSQL_INCLUDE)
-
 all: $(TARGET)
 
-$(TARGET): $(OBJS) build/MySQLAdapter.o build/MySQLQueryBuilder.o
+$(TARGET): $(OBJS)
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
 
+# Compile main source
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
-	@mkdir -p $(@D)
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
-$(BUILD_DIR)/MySQLAdapter.o: $(INC_DIR)/orm/MySQLAdapter.cpp
-	@mkdir -p $(@D)
+# Compile MySQL ORM source
+$(BUILD_DIR)/orm/MY_SQL/%.o: $(MYSQL_SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
-$(BUILD_DIR)/MySQLQueryBuilder.o: $(INC_DIR)/orm/MySQLQueryBuilder.cpp
-	@mkdir -p $(@D)
+# Compile serializer source
+$(BUILD_DIR)/serializer/%.o: $(SERIALIZER_SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:

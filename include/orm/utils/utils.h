@@ -2,6 +2,7 @@
 #include <string>
 #include <iomanip> // for std::setw
 #include <ctime>
+#include "serializer/jsonparser.h"
 
 std::string getCurrentDateTime()
 {
@@ -51,4 +52,20 @@ void printRows(const std::vector<std::unordered_map<std::string, std::string>> &
         }
         std::cout << "\n";
     }
+}
+
+JSON serializationTOJSONNode(std::vector<std::unordered_map<std::string, std::string>> &rows)
+{
+    JSON jsonArray(JSONType::ARRAY);
+
+    for (const auto &row : rows)
+    {
+        JSON obj(JSONType::OBJECT);
+        for (const auto &pair : row)
+        {
+            obj[pair.first] = JSON(pair.second);
+        }
+        jsonArray.appendArray(obj);
+    }
+    return jsonArray;
 }
