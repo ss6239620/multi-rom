@@ -14,7 +14,7 @@ std::string getCurrentDateTime()
     return buf;
 }
 
-void printRows(const std::vector<std::unordered_map<std::string, std::string>> &rows)
+void printRows(const std::vector<std::map<std::string, std::string>> &rows)
 {
     if (rows.empty())
     {
@@ -54,7 +54,7 @@ void printRows(const std::vector<std::unordered_map<std::string, std::string>> &
     }
 }
 
-JSON serializationTOJSONNode(std::vector<std::unordered_map<std::string, std::string>> &rows)
+JSON serializationTOJSONNode(std::vector<std::map<std::string, std::string>> &rows)
 {
     JSON jsonArray(JSONType::ARRAY);
 

@@ -224,9 +224,9 @@ namespace ORM
         return true;
     }
 
-    std::vector<std::unordered_map<std::string, std::string>> MySQLAdapter::fetchAllFromQuery(const std::string &query)
+    std::vector<std::map<std::string, std::string>> MySQLAdapter::fetchAllFromQuery(const std::string &query)
     {
-        std::vector<std::unordered_map<std::string, std::string>> rows;
+        std::vector<std::map<std::string, std::string>> rows;
         MYSQL_RES *result = nullptr;
 
         if (!executeQuery(query, result))
@@ -239,7 +239,7 @@ namespace ORM
 
         while (row = mysql_fetch_row(result))
         {
-            std::unordered_map<std::string, std::string> row_map;
+            std::map<std::string, std::string> row_map;
             unsigned long *lengths = mysql_fetch_lengths(result);
 
             for (int i = 0; i < num_fields; i++)

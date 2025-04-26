@@ -16,9 +16,9 @@ namespace ORM
         // Aggregate functions
         QueryBuilder &count(const std::string &column = "*", const std::string &alias = "") override;
         QueryBuilder &average(const std::string &column, const std::string &alias) override;
-        // QueryBuilder &sum(const std::string &column, const std::string &alias) override;
-        // QueryBuilder &min(const std::string &column, const std::string &alias) override;
-        // QueryBuilder &max(const std::string &column, const std::string &alias) override;
+        QueryBuilder &sum(const std::string &column, const std::string &alias) override;
+        QueryBuilder &min(const std::string &column, const std::string &alias) override;
+        QueryBuilder &max(const std::string &column, const std::string &alias) override;
 
         QueryBuilder &join(const std::string &table, const std::string &condition, const std::string &type = "INNER") override;
         QueryBuilder &leftJoin(const std::string &table, const std::string &condition) override;
@@ -42,6 +42,11 @@ namespace ORM
         std::string escapeString(const std::string &input) const;
 
         std::string build() override;
+
+        const std::vector<std::string> &getWhereClause() const { return whereClauses_; }
+        const std::vector<std::string> &getJoinClause() const { return joinClauses_; }
+        const std::vector<std::string> &getOrderByClause() const { return orderByClauses_; }
+        const int &getLimit() const { return limit_; }
 
     private:
         MYSQL *connection_;

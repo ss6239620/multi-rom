@@ -20,6 +20,13 @@ FIELD(bio, STRING, .nullable = false, .unique = false, .max_length = 100)
 FIELD(created_at, DATETIME)
 END_MODEL_DEFINITION()
 
+BEGIN_MODEL_DEFINITION(Account, "account")
+FIELD(id, INTEGER, .primary_key = true, .auto_increment = true)
+FIELD(user_id, INTEGER, .nullable = false)
+FIELD(price, INTEGER, .nullable = false, .unique = true, .max_length = 50)
+FIELD(created_at, DATETIME)
+END_MODEL_DEFINITION()
+
 int main()
 {
     ORM::MySQLAdapter adapter;
@@ -29,25 +36,23 @@ int main()
         return 1;
     }
 
+    bool res = adapter.delete_<Account>()
+                   .where("id = 1")
+                   .execute();
+
+    if (!res)
+    {
+        std::cout << "Insertion Failed: " << adapter.getLastError() << std::endl;
+    }
+
     auto queryBuilder = adapter.createQueryBuilder();
-    auto query = queryBuilder->alias("users", "u")
-    .select({"email", "username",})
-    .average("is_active", "active")
-    .count("id", "cnt")
-    .from("users")
-    .alias("profile", "p")
-    .select({"bio", "fullname",})
-    .join("profile", "u.id = p.user_id")
-    .groupBy({"u.username", "u.email", "p.bio", "p.fullname"})
-    .build();
+    auto query = queryBuilder->select({})
+                     .from("account")
+                     .build();
 
-    std::cout << query << std::endl; 
-    
+    std::cout << query << std::endl;
 
-    auto rows = adapter.fetchAllFromQuery(query);
-    JSON result = serializationTOJSONNode(rows);
-
-    std::cout << result << std::endl;
+    printRows(adapter.fetchAllFromQuery(query));
 
     adapter.disconnect();
     return 0;

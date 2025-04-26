@@ -79,6 +79,66 @@ namespace ORM
         return *this;
     }
 
+    QueryBuilder &MySQLQueryBuilder::sum(const std::string &column, const std::string &alias)
+    {
+        std::string str = "SUM(";
+        if (column.find('.') == std::string::npos && !lastAlias_.empty())
+        {
+            str += lastAlias_ + "." + column;
+        }
+        else
+        {
+            str += column;
+        }
+        str += ")";
+        if (!alias.empty())
+        {
+            str += " AS " + alias;
+        }
+        selectColumns_.push_back(str);
+        return *this;
+    }
+
+    QueryBuilder &MySQLQueryBuilder::min(const std::string &column, const std::string &alias)
+    {
+        std::string str = "MIN(";
+        if (column.find('.') == std::string::npos && !lastAlias_.empty())
+        {
+            str += lastAlias_ + "." + column;
+        }
+        else
+        {
+            str += column;
+        }
+        str += ")";
+        if (!alias.empty())
+        {
+            str += " AS " + alias;
+        }
+        selectColumns_.push_back(str);
+        return *this;
+    }
+
+    QueryBuilder &MySQLQueryBuilder::max(const std::string &column, const std::string &alias)
+    {
+        std::string str = "MAX(";
+        if (column.find('.') == std::string::npos && !lastAlias_.empty())
+        {
+            str += lastAlias_ + "." + column;
+        }
+        else
+        {
+            str += column;
+        }
+        str += ")";
+        if (!alias.empty())
+        {
+            str += " AS " + alias;
+        }
+        selectColumns_.push_back(str);
+        return *this;
+    }
+
     QueryBuilder &MySQLQueryBuilder::join(const std::string &table, const std::string &condition, const std::string &type)
     {
         if (aliasMap_.count(table))

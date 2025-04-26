@@ -164,9 +164,9 @@ namespace ORM
         //Aggregate functions
         virtual QueryBuilder &count(const std::string &column, const std::string &alias) = 0;
         virtual QueryBuilder &average(const std::string &column, const std::string &alias) = 0;
-        // virtual QueryBuilder &sum(const std::string &column, const std::string &alias) = 0;
-        // virtual QueryBuilder &min(const std::string &column, const std::string &alias) = 0;
-        // virtual QueryBuilder &max(const std::string &column, const std::string &alias) = 0;
+        virtual QueryBuilder &sum(const std::string &column, const std::string &alias) = 0;
+        virtual QueryBuilder &min(const std::string &column, const std::string &alias) = 0;
+        virtual QueryBuilder &max(const std::string &column, const std::string &alias) = 0;
         // JOIN operations
         virtual QueryBuilder &join(const std::string &table, const std::string &condition, const std::string &type = "INNER") = 0;
         virtual QueryBuilder &leftJoin(const std::string &table, const std::string &condition) = 0;
