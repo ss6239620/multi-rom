@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <unordered_map>
+#include "utils/utils.h"
 
 namespace ORM
 {
@@ -26,7 +27,7 @@ namespace ORM
         bool auto_increment = false; /**< Indicates if the field auto increments */
         bool nullable = false;       /**< Indicates if the field can be null */
         bool unique = false;         /**< Indicates if the field has a unique constraint */
-        size_t max_length = 0;       /**< Maximum length for fields like strings */
+        int max_length = 0;       /**< Maximum length for fields like strings */
         std::string default_value;   /**< Default value for the field */
     };
 
@@ -132,6 +133,14 @@ namespace ORM
          */
         virtual bool createTable(const Model &model) = 0;
 
+        virtual std::string createTableSQL(const Model &model) = 0;
+
+        virtual std::vector<std::map<std::string, std::string>> executeQuery(
+            const std::string &query, const std::vector<std::string> &params) = 0;
+
+        virtual bool executeRawSQL(
+            const std::string &query, const std::vector<std::string> &params) = 0;
+
         /**
          * Insert a new record into a table based on the model's data.
          *
@@ -147,6 +156,8 @@ namespace ORM
 
         // Querybuilder for mysql
         virtual std::unique_ptr<QueryBuilder> createQueryBuilder() = 0;
+
+        virtual std::vector<std::map<std::string, std::string>> fetchAllFromQuery(const std::string &query) = 0;
     };
 
     class QueryBuilder
@@ -159,9 +170,8 @@ namespace ORM
         // Table name
         virtual QueryBuilder &from(const std::string &table) = 0;
         virtual QueryBuilder &alias(const std::string &table, const std::string &alias) = 0;
-        
 
-        //Aggregate functions
+        // Aggregate functions
         virtual QueryBuilder &count(const std::string &column, const std::string &alias) = 0;
         virtual QueryBuilder &average(const std::string &column, const std::string &alias) = 0;
         virtual QueryBuilder &sum(const std::string &column, const std::string &alias) = 0;

@@ -10,8 +10,12 @@ BIN_DIR = bin
 MYSQL_INCLUDE = /usr/include/mysql
 ORM_DIR = $(INC_DIR)/orm
 MYSQL_SRC_DIR = $(ORM_DIR)/MY_SQL
-UTILS_DIR = $(INC_DIR)/utils
+UTILS_DIR = $(INC_DIR)/orm/utils
 SERIALIZER_SRC_DIR = $(INC_DIR)/serializer
+
+UTILS_SRCS = $(wildcard $(UTILS_DIR)/*.cpp)
+UTILS_OBJS = $(patsubst $(UTILS_DIR)/%.cpp,$(BUILD_DIR)/utils/%.o,$(UTILS_SRCS))
+
 
 INCLUDES = -I$(INC_DIR) -I$(MYSQL_INCLUDE) -I$(ORM_DIR) -I$(MYSQL_SRC_DIR) -I$(UTILS_DIR) -I$(SERIALIZER_SRC_DIR)
 
@@ -25,7 +29,7 @@ MAIN_OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(MAIN_SRCS))
 MYSQL_OBJS = $(patsubst $(MYSQL_SRC_DIR)/%.cpp,$(BUILD_DIR)/orm/MY_SQL/%.o,$(MYSQL_SRCS))
 SERIALIZER_OBJS = $(patsubst $(SERIALIZER_SRC_DIR)/%.cpp,$(BUILD_DIR)/serializer/%.o,$(SERIALIZER_SRCS))
 
-OBJS = $(MAIN_OBJS) $(MYSQL_OBJS) $(SERIALIZER_OBJS)
+OBJS = $(MAIN_OBJS) $(MYSQL_OBJS) $(SERIALIZER_OBJS) $(UTILS_OBJS)
 
 TARGET = $(BIN_DIR)/orm_demo
 
@@ -47,6 +51,11 @@ $(BUILD_DIR)/orm/MY_SQL/%.o: $(MYSQL_SRC_DIR)/%.cpp
 
 # Compile serializer source
 $(BUILD_DIR)/serializer/%.o: $(SERIALIZER_SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+# Compile utils source
+$(BUILD_DIR)/utils/%.o: $(UTILS_DIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 

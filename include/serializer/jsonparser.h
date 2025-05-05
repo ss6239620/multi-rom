@@ -158,6 +158,24 @@ public:
         d_value.d_bool = value;
     }
 
+    /**
+     * @brief Gets the size of the array or object
+     * @return Size of the array/object
+     * @throws std::runtime_error if node is not an array or object
+     */
+    size_t size() const
+    {
+        if (isArray())
+        {
+            return d_array.size();
+        }
+        else if (isObject())
+        {
+            return d_data.size();
+        }
+        throw std::runtime_error("size() called on non-array/non-object JSONNode");
+    }
+
     // Copy constructor
     JSONNode(const JSONNode &other) : d_type(other.d_type)
     {

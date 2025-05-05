@@ -36,12 +36,19 @@ namespace ORM
         bool connect(const std::string &host, const std::string &user,
                      const std::string &password, const std::string &dbname) override;
         bool createTable(const Model &model) override;
+        std::string createTableSQL(const Model &model) override;
         void disconnect() override;
         std::string getLastError() const { return lastError_; }
 
         bool executeQuery(const std::string &query, MYSQL_RES *&result);
 
-        std::vector<std::map<std::string, std::string>> fetchAllFromQuery(const std::string &query);
+        std::vector<std::map<std::string, std::string>> executeQuery(
+            const std::string &query, const std::vector<std::string> &params) override;
+
+        bool executeRawSQL(
+            const std::string &query, const std::vector<std::string> &params) override;
+
+        std::vector<std::map<std::string, std::string>> fetchAllFromQuery(const std::string &query) override;
 
         std::unique_ptr<QueryBuilder> createQueryBuilder() override
         {
@@ -62,7 +69,6 @@ namespace ORM
         {
             return ModelQuery<ModelType>(this, "DELETE");
         }
-
 
         MYSQL *getConnection() const { return connection_; }
         std::string escapeString(const std::string &input) const;

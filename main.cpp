@@ -45,15 +45,20 @@ int main()
         std::cout << "Insertion Failed: " << adapter.getLastError() << std::endl;
     }
 
-    auto queryBuilder = adapter.createQueryBuilder();
-    auto query = queryBuilder->select({})
-                     .from("account")
-                     .build();
+    // auto queryBuilder = adapter.createQueryBuilder();
+    // auto query = queryBuilder->select({})
+    //                  .from("account")
+    //                  .build();
 
-    std::cout << query << std::endl;
+    auto rows = adapter.executeQuery("SELECT * FROM account WHERE id = 2", {});
+    if (!rows.empty())
+        std::cout << rows[0]["price"]<<std::endl;
 
-    printRows(adapter.fetchAllFromQuery(query));
+    // auto rows = adapter.fetchAllFromQuery(query);
+
+    // std::cout << query << std::endl;
 
     adapter.disconnect();
+
     return 0;
 }

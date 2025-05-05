@@ -154,8 +154,6 @@ namespace ORM
             query += " LIMIT " + std::to_string(builder_.getLimit());
         }
 
-        std::cout << query << std::endl;
-
         MYSQL_RES *temp = nullptr;
         bool success = adapter_->executeQuery(query, temp);
         if (temp)

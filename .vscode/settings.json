@@ -68,6 +68,12 @@
         "cinttypes": "cpp",
         "iomanip": "cpp",
         "sstream": "cpp",
-        "*.tpp": "cpp"
+        "*.tpp": "cpp",
+        "charconv": "cpp",
+        "chrono": "cpp",
+        "codecvt": "cpp",
+        "format": "cpp",
+        "span": "cpp",
+        "variant": "cpp"
     }
 }

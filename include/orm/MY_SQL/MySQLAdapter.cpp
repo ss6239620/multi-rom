@@ -2,6 +2,7 @@
 #include "MySQLAdapter.h"
 #include <stdexcept>
 #include <iostream>
+#include <string.h>
 
 namespace ORM
 {
@@ -131,6 +132,40 @@ namespace ORM
         return true;
     }
 
+    std::string MySQLAdapter::createTableSQL(const Model &model)
+    {
+        std::string query = "CREATE TABLE IF NOT EXISTS " + model.getTableName() + " (";
+        bool first = true;
+
+        for (const auto &field : model.getFields())
+        {
+            if (!first)
+                query += ", ";
+            first = false;
+
+            query += field->getName() + " " + getTypeString(field->getType(), field->getOptions());
+
+            if (field->getOptions().primary_key)
+            {
+                query += " PRIMARY KEY";
+            }
+            if (field->getOptions().unique)
+            {
+                query += " UNIQUE";
+            }
+            if (!field->getOptions().nullable)
+            {
+                query += " NOT NULL";
+            }
+            if (!field->getOptions().default_value.empty())
+            {
+                query += " DEFAULT '" + escapeString(field->getOptions().default_value) + "'";
+            }
+        }
+
+        query += ")";
+    }
+
     bool MySQLAdapter::insertRecord(const Model &model)
     {
         if (!connection_)
@@ -224,11 +259,119 @@ namespace ORM
         return true;
     }
 
+    bool bindStatementParams(MYSQL_STMT *stmt, const std::vector<std::string> &params)
+    {
+        std::vector<MYSQL_BIND> bind(params.size());
+        std::vector<std::string> paramsCopies = params;
+
+        for (size_t i = 0; i < params.size(); i++)
+        {
+            memset(&bind[i], 0, sizeof(MYSQL_BIND));
+            bind[i].buffer_type = MYSQL_TYPE_STRING;
+            bind[i].buffer = (void *)paramsCopies[i].c_str();
+            bind[i].buffer_length = paramsCopies[i].size();
+        }
+        return mysql_stmt_bind_param(stmt, bind.data()) == 0;
+    }
+
+    bool MySQLAdapter::executeRawSQL(const std::string &query, const std::vector<std::string> &params)
+    {
+        MYSQL_STMT *stmt = mysql_stmt_init(connection_);
+        if (!stmt)
+            return false;
+
+        if (mysql_stmt_prepare(stmt, query.c_str(), query.length()) != 0)
+        {
+            mysql_stmt_close(stmt);
+            return false;
+        }
+        if (!bindStatementParams(stmt, params))
+        {
+            mysql_stmt_close(stmt);
+            return false;
+        }
+        bool succuss = mysql_stmt_execute(stmt) == 0;
+        mysql_stmt_close(stmt);
+        return succuss;
+    }
+
+    std::vector<std::map<std::string, std::string>> ORM::MySQLAdapter::executeQuery(
+        const std::string &query, const std::vector<std::string> &params)
+    {
+
+        std::vector<std::map<std::string, std::string>> results;
+
+        MYSQL_STMT *stmt = mysql_stmt_init(connection_);
+        if (!stmt)
+            return results;
+
+        if (mysql_stmt_prepare(stmt, query.c_str(), query.length()) != 0)
+        {
+            mysql_stmt_close(stmt);
+            return results;
+        }
+
+        if (!bindStatementParams(stmt, params))
+        {
+            mysql_stmt_close(stmt);
+            return results;
+        }
+
+        if (mysql_stmt_execute(stmt) != 0)
+        {
+            mysql_stmt_close(stmt);
+            return results;
+        }
+
+        MYSQL_RES *meta = mysql_stmt_result_metadata(stmt);
+        if (!meta)
+        {
+            mysql_stmt_close(stmt);
+            return results;
+        }
+
+        int numFields = mysql_num_fields(meta);
+        std::vector<MYSQL_BIND> bind(numFields);
+        std::vector<char> buffer(1024);
+        std::vector<unsigned long> lengths(numFields);
+        std::vector<char *> rowBuffer(numFields);
+
+        for (int i = 0; i < numFields; ++i)
+        {
+            rowBuffer[i] = new char[1024];
+            memset(&bind[i], 0, sizeof(MYSQL_BIND));
+            bind[i].buffer_type = MYSQL_TYPE_STRING;
+            bind[i].buffer = rowBuffer[i];
+            bind[i].buffer_length = 1024;
+            bind[i].length = &lengths[i];
+        }
+
+        mysql_stmt_bind_result(stmt, bind.data());
+
+        while (mysql_stmt_fetch(stmt) == 0)
+        {
+            std::map<std::string, std::string> row;
+            MYSQL_FIELD *fields = mysql_fetch_fields(meta);
+            for (int i = 0; i < numFields; ++i)
+            {
+                row[fields[i].name] = std::string(rowBuffer[i], lengths[i]);
+            }
+            results.push_back(row);
+        }
+
+        for (auto ptr : rowBuffer)
+            delete[] ptr;
+        mysql_free_result(meta);
+        mysql_stmt_close(stmt);
+
+        return results;
+    }
+
     std::vector<std::map<std::string, std::string>> MySQLAdapter::fetchAllFromQuery(const std::string &query)
     {
         std::vector<std::map<std::string, std::string>> rows;
         MYSQL_RES *result = nullptr;
-
+        JSON res;
         if (!executeQuery(query, result))
         {
             return rows; // unsuccsessfull
