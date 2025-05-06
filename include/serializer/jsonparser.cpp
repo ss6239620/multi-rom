@@ -44,6 +44,7 @@ bool isWhiteSpace(char c)
  */
 bool isDouble(const std::string &s)
 {
+    if (s.empty()) return false;
     int i = 0;
     if (s[0] == '+' || s[0] == '-')
         i++;
@@ -70,6 +71,7 @@ bool isDouble(const std::string &s)
 
 bool isInteger(const std::string &s)
 {
+    if (s.empty()) return false;
     int i = 0;
     if (s[0] == '+' || s[0] == '-')
         i++;
@@ -87,31 +89,42 @@ JSONNode getValue(const std::string &s)
 {
     int i = 0, j = s.length() - 1;
 
-    while (isWhiteSpace(s[i])) // remove whitespace from front of value string
-        i++;
-    while (isWhiteSpace(s[j])) // remove whitespace from back of value string
-        j--;
-    std::string temp = s.substr(i, j - i + 1); // find the valid string without whitespaces.
+    // Trim whitespace
+    while (i <= j && isWhiteSpace(s[i])) i++;
+    while (j >= i && isWhiteSpace(s[j])) j--;
 
-    if (temp[0] == '"')
-        // we ignore first position and last position "dhhd"->dhhd. here we create string constructor
-        return (JSONNode(temp.substr(1, temp.length() - 2)));
+    if (i > j) return JSONNode(); // Empty string becomes null
 
-    // check if the value is boolean type use boolean constructoe
-    if (temp == "true" || temp == "false")
-        return JSONNode(temp == "true");
+    std::string temp = s.substr(i, j - i + 1);
 
-    // check if the value is null type use null constructoe
-    if (temp == "null")
-        return JSONNode();
+    if (temp.empty()) return JSONNode();
 
-    // check if the value is double or float type use double constructor
-    if (isDouble(temp))
-        return JSONNode(std::stod(temp));
+    if (temp[0] == '"') {
+        if (temp.length() < 2 || temp.back() != '"') {
+            return JSONNode(); // Invalid string
+        }
+        return JSONNode(temp.substr(1, temp.length() - 2));
+    }
 
-    // check if the value is int type use int constructor
-    if (isInteger(temp))
-        return JSONNode(std::stoi(temp));
+    if (temp == "true") return JSONNode(true);
+    if (temp == "false") return JSONNode(false);
+    if (temp == "null") return JSONNode();
+
+    // Numeric handling
+    if (isDouble(temp)) {
+        try {
+            if (isInteger(temp)) {
+                try {
+                    return JSONNode(std::stoi(temp));
+                } catch (...) {
+                    return JSONNode(std::stod(temp));
+                }
+            }
+            return JSONNode(std::stod(temp));
+        } catch (...) {
+            return JSONNode(temp);
+        }
+    }
 
     return JSONNode(temp);
 }
@@ -209,10 +222,17 @@ JSONNode parseArray(const std::string &s, int start, int end, std::unordered_map
 
     while (i < end)
     {
+        // Skip whitespace
         while (i < end && isWhiteSpace(s[i]))
             i++;
         if (i >= end)
             break;
+
+        // Handle empty elements (just skip them)
+        if (s[i] == ',') {
+            i++;
+            continue;
+        }
 
         if (s[i] == '{' || s[i] == '[')
         {
@@ -233,14 +253,20 @@ JSONNode parseArray(const std::string &s, int start, int end, std::unordered_map
             while (i < end && s[i] != ',')
                 i++;
             std::string valueStr = s.substr(valueStart, i - valueStart);
-            ans.appendArray(getValue(valueStr));
+            JSONNode value = getValue(valueStr);
+            if (!value.isNULL()) {  // Only append non-null values
+                ans.appendArray(value);
+            }
             i++; // Skip ','
         }
+
+        // Skip whitespace after value
         while (i < end && isWhiteSpace(s[i]))
             i++;
     }
     return ans;
 }
+
 std::string JSONNode::stringify(const JSONNode &node)
 {
     switch (node.d_type)

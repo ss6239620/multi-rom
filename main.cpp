@@ -1,12 +1,11 @@
-#include "include/orm/MY_SQL/MySQLAdapter.h"
-#include "include/orm/ModelMacros.h"
+#include "MySQLAdapter.h"
+#include "ModelMacros.h"
 #include <iostream>
-#include "utils/utils.h"
-#include "serializer/jsonparser.h"
+#include "MigrationManager.h"
 
 BEGIN_MODEL_DEFINITION(User, "users")
 FIELD(id, INTEGER, .primary_key = true, .auto_increment = true)
-FIELD(username, STRING, .nullable = false, .unique = true, .max_length = 50)
+FIELD(username, STRING, .nullable = false, .max_length = 50, .default_value = "sharvesh")
 FIELD(email, STRING, .nullable = false, .unique = false, .max_length = 100)
 FIELD(created_at, DATETIME)
 FIELD(is_active, BOOLEAN, .default_value = "1")
@@ -36,27 +35,11 @@ int main()
         return 1;
     }
 
-    bool res = adapter.delete_<Account>()
-                   .where("id = 1")
-                   .execute();
+    ORM::MigrationManager::intialize(adapter);
 
-    if (!res)
-    {
-        std::cout << "Insertion Failed: " << adapter.getLastError() << std::endl;
-    }
-
-    // auto queryBuilder = adapter.createQueryBuilder();
-    // auto query = queryBuilder->select({})
-    //                  .from("account")
-    //                  .build();
-
-    auto rows = adapter.executeQuery("SELECT * FROM account WHERE id = 2", {});
-    if (!rows.empty())
-        std::cout << rows[0]["price"]<<std::endl;
-
-    // auto rows = adapter.fetchAllFromQuery(query);
-
-    // std::cout << query << std::endl;
+    // Create and migrate your model
+    User userModel;
+    ORM::MigrationManager::migrateModel(adapter, userModel);
 
     adapter.disconnect();
 

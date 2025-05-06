@@ -164,6 +164,7 @@ namespace ORM
         }
 
         query += ")";
+        return query;
     }
 
     bool MySQLAdapter::insertRecord(const Model &model)
@@ -282,11 +283,13 @@ namespace ORM
 
         if (mysql_stmt_prepare(stmt, query.c_str(), query.length()) != 0)
         {
+            lastError_ = mysql_error(connection_);
             mysql_stmt_close(stmt);
             return false;
         }
         if (!bindStatementParams(stmt, params))
         {
+            lastError_ = mysql_error(connection_);
             mysql_stmt_close(stmt);
             return false;
         }

@@ -53,10 +53,10 @@ namespace ORM
         static JSON getLastMigration(DatabaseAdapter &adapter, const std::string &tableName);
 
         // Schema Compariasion and alteration
-        static void compareAndUpdateSchema(DatabaseAdapter &adapter, const Model &model, const JSON &oldSchema);
+        static void compareAndUpdateSchema(DatabaseAdapter &adapter, const Model &model, const JSON &oldSchema, std::vector<std::string> &upSql, std::vector<std::string> &downSql);
         static void alterTable(DatabaseAdapter &adapter, const Model &model, const JSON &oldSchema);
         static void handleFieldChanges(DatabaseAdapter &adapter, const std::string &tableaName, const Field &newField, const JSON &oldField);
-        static void handleDroppedColumn(DatabaseAdapter &adapter, const std::string &tableName, const Model &model, const JSON &oldSchema);
+        static void handleDroppedColumn(DatabaseAdapter &adapter, const std::string &tableName, const Model &model, const JSON &oldSchema, std::vector<std::string> &upSql, std::vector<std::string> &downSql);
 
         // Version generation
         static std::string generateVersionNumber();

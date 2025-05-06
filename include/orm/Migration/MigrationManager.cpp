@@ -29,6 +29,8 @@ namespace ORM
 
         if (lastMigration.isNULL()) // first migration of the model
         {
+            std::cout << "here if 1" << std::endl;
+
             std::string version = "001_intial";
             std::vector<std::string> upSql = {adapter.createTableSQL(model)};
             std::vector<std::string> downSql = {"DROP TABLE " + tableName};
@@ -39,9 +41,13 @@ namespace ORM
         }
         else if (lastMigration["schema_hash"].get<std::string>() != schemaHash) // schema has changed need migration
         {
+            std::cout << "here else if 1" << std::endl;
             JSON old_schema = parseSchemaJSON(lastMigration["schema_json"].get<std::string>());
 
+            std::cout << "here else if 2" << std::endl;
+
             std::string version = generateVersionNumber();
+            std::cout << "here else if 3" << std::endl;
             std::string migrationName = version + "_after_" + tableName;
 
             // already generated upsql and downsql when create schema
@@ -49,10 +55,15 @@ namespace ORM
             std::vector<std::string> downsql;
 
             // compare schema and genearet alter statements
-            compareAndUpdateSchema(adapter, model, old_schema);
+            std::cout << "here else if 3.1" << std::endl;
+            compareAndUpdateSchema(adapter, model, old_schema, upsql, downsql);
+            std::cout << "here else if 4" << std::endl;
 
             createMigrationFile(migrationName, upsql, downsql);
+            std::cout << "here else if 5" << std::endl;
+
             createMigrationRecord(adapter, tableName, schemaHash, schemaJSON, version);
+            std::cout << "here else if 6" << std::endl;
         }
     }
 
@@ -63,17 +74,17 @@ namespace ORM
 
         file << "#include \"MigrationManager.h\"\n";
         file << "#include \"DatabaseTypes.h\"\n";
-        file << "class Migration_" << name << " : public MigrationInterface {\n";
+        file << "class Migration_" << name << " : public ORM::MigrationInterface {\n";
         file << "public:\n";
 
-        file << "     void up(DatabaseAdapter &adapter) override { \n";
+        file << "     void up(ORM::DatabaseAdapter &adapter) override { \n";
         for (const auto &sql : upSql)
         {
             file << "         adapter.executeRawSQL(\"" << sql << "\",{});\n";
         }
         file << "     }\n\n";
 
-        file << "      void down((DatabaseAdapter &adapter) override { \n";
+        file << "      void down(ORM::DatabaseAdapter &adapter) override { \n";
         for (const auto &sql : downSql)
         {
             file << "         adapter.executeRawSQL(\"" << sql << "\",{});\n";
@@ -118,15 +129,22 @@ namespace ORM
 
         for (const auto &field : model.getFields())
         {
+            if (!field)
+            {
+                std::cerr << "Warning: Null field encountered, skipping" << std::endl;
+                continue;
+            }
             auto opt = field->getOptions();
             JSON fieldJson(JSONType::OBJECT);
 
             fieldJson["name"] = JSON(field->getName());
+            // Use static_cast<int> for enum types
             fieldJson["type"] = JSON(static_cast<int>(field->getType()));
             fieldJson["primary_key"] = JSON(opt.primary_key);
             fieldJson["auto_increment"] = JSON(opt.auto_increment);
             fieldJson["default_value"] = JSON(opt.default_value);
-            fieldJson["max_length"] = JSON(opt.max_length);
+            // Use static_cast<int> for max_length if it's meant to be integer
+            fieldJson["max_length"] = JSON(static_cast<int>(opt.max_length));
             fieldJson["nullable"] = JSON(opt.nullable);
             fieldJson["unique"] = JSON(opt.unique);
 
@@ -137,22 +155,47 @@ namespace ORM
 
     JSON MigrationManager::parseSchemaJSON(const std::string &jsonStr)
     {
-        return JSON::parse(jsonStr);
+        try
+        {
+            JSON parsed = JSON::parse(jsonStr);
+            if (!parsed.isArray())
+            {
+                throw std::runtime_error("Schema JSON should be an array of field definitions");
+            }
+            return parsed;
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Failed to parse JSON: " << jsonStr << std::endl;
+            std::cerr << "Error: " << e.what() << std::endl;
+            throw;
+        }
     }
 
     void MigrationManager::ensureMigrationTable(DatabaseAdapter &adapter)
     {
-        std::string query = R"(
-            CREATE TABLE IF NOT EXISTS migrations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                model_name TEXT NOT NULL,
-                version TEXT NOT NULL,
-                schema_hash TEXT NOT NULL,
-                schema_json TEXT NOT NULL,
-                applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        )";
-        adapter.executeRawSQL(query, {});
+        try
+        {
+            std::string query = R"(
+                CREATE TABLE IF NOT EXISTS migrations (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    model_name TEXT NOT NULL,
+                    version TEXT NOT NULL,
+                    schema_hash TEXT NOT NULL,
+                    schema_json TEXT NOT NULL,
+                    applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            )";
+            if (!adapter.executeRawSQL(query, {}))
+            {
+                throw std::runtime_error("Failed to execute migrations table creation SQL");
+            }
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Error ensuring migrations table exists: " << e.what() << std::endl;
+            throw;
+        }
     }
 
     bool MigrationManager::migrationExists(DatabaseAdapter &adapter, const std::string &tableName, const std::string &hash)
@@ -165,9 +208,32 @@ namespace ORM
 
     void MigrationManager::createMigrationRecord(DatabaseAdapter &adapter, const std::string &tableName, const std::string &hash, const JSON &schemaJSON, const std::string &version)
     {
-        adapter.executeRawSQL(
-            "INSERT INTO migrations (model_name,version,schema_hash,schema_json) VALUES (?,?,?,?)",
-            {tableName, version, hash, JSON::stringify(schemaJSON)});
+
+        // Validate schemaJSON before storing
+        if (!schemaJSON.isArray())
+            throw std::runtime_error("Schema JSON must be an array");
+
+        for (size_t i = 0; i < schemaJSON.size(); i++)
+        {
+            JSON field = schemaJSON[i];
+            if (field.isNULL() || (field["name"].get<std::string>().empty()))
+            {
+                throw std::runtime_error("Invalid field in schema - cannot store empty fields");
+            }
+        }
+
+        std::string escapedModelName = adapter.escapeString(tableName);
+        std::string escapedVersion = adapter.escapeString(version);
+        std::string escapedHash = adapter.escapeString(hash);
+        std::string escapedSchema = adapter.escapeString(JSON::stringify(schemaJSON));
+
+        std::string query = "INSERT INTO migrations (model_name,version,schema_hash,schema_json) VALUES ('" +
+                            escapedModelName + "','" + escapedVersion + "','" + escapedHash + "','" + escapedSchema + "')";
+
+        if (!adapter.executeRawSQL(query, {}))
+        {
+            throw std::runtime_error("Failed to insert record in migrations table.");
+        }
     }
 
     JSON MigrationManager::getLastMigration(DatabaseAdapter &adapter, const std::string &tableName)
@@ -184,20 +250,31 @@ namespace ORM
         return lastMigration;
     }
 
-    void MigrationManager::compareAndUpdateSchema(DatabaseAdapter &adapter, const Model &model, const JSON &oldSchema)
+    void MigrationManager::compareAndUpdateSchema(DatabaseAdapter &adapter, const Model &model, const JSON &oldSchema, std::vector<std::string> &upSql, std::vector<std::string> &downSql)
     {
         std::string tableName = model.getTableName();
-        std::vector<std::string> upSql;
-        std::vector<std::string> downSql;
 
         // create hashmap for fast lookup
         std::unordered_map<std::string, JSON> oldFields;
         for (size_t i = 0; i < oldSchema.size(); i++)
         {
             JSON field = oldSchema[i];
-            oldFields[field["name"].get<std::string>()] = field;
+            // Skip empty or invalid fields
+            if (field.isNULL())
+            {
+                std::cerr << "Warning: Skipping empty/invalid field at index " << i << std::endl;
+                continue;
+            }
+            try
+            {
+                std::string fieldName = field["name"].get<std::string>();
+                oldFields[fieldName] = field;
+            }
+            catch (const std::exception &e)
+            {
+                throw std::runtime_error("Invalid field structure: " + std::string(e.what()));
+            }
         }
-
         // check for modified field
         for (const auto &field : model.getFields())
         {
@@ -211,12 +288,14 @@ namespace ORM
                 downSql.push_back(generateAlterDropColumn(tableName, fieldName));
                 adapter.executeRawSQL(alterSql, {});
             }
+
             else
             {
                 // existing field possibly its renamed
                 const JSON &oldField = it->second;
+
                 if (static_cast<int>(field->getType()) != oldField["type"].get<int>() ||
-                    static_cast<int>(field->getOptions().nullable) != oldField["nullable"].get<int>() ||
+                    static_cast<int>(field->getOptions().nullable) != oldField["nullable"].get<bool>() ||
                     static_cast<int>(field->getOptions().max_length) != oldField["max_length"].get<int>())
                 {
                     std::string modifySql = generateAlterModifyColumn(tableName, *field);
@@ -230,22 +309,22 @@ namespace ORM
                                                                           oldField["auto_increment"].get<bool>(),
                                                                           oldField["nullable"].get<bool>(),
                                                                           oldField["unique"].get<bool>(),
-                                                                          oldField["max_lenght"].get<int>(),
+                                                                          oldField["max_length"].get<int>(),
                                                                           oldField["default_value"].get<std::string>()})));
                     adapter.executeRawSQL(modifySql, {});
                 }
             }
         }
         // check for droped column
-        handleDroppedColumn(adapter, tableName, model, oldSchema);
+        handleDroppedColumn(adapter, tableName, model, oldSchema, upSql, downSql);
     }
 
     void MigrationManager::alterTable(DatabaseAdapter &adapter, const Model &model, const JSON &oldSchema)
     {
-        compareAndUpdateSchema(adapter, model, oldSchema);
+        // compareAndUpdateSchema(adapter, model, oldSchema);
     }
 
-    void MigrationManager::handleDroppedColumn(DatabaseAdapter &adapter, const std::string &tableName, const Model &model, const JSON &oldSchema)
+    void MigrationManager::handleDroppedColumn(DatabaseAdapter &adapter, const std::string &tableName, const Model &model, const JSON &oldSchema, std::vector<std::string> &upSql, std::vector<std::string> &downSql)
     {
         std::unordered_set<std::string> currentFields;
         for (const auto &field : model.getFields())
@@ -253,13 +332,10 @@ namespace ORM
             currentFields.insert(field->getName());
         }
 
-        std::vector<std::string> upSql;
-        std::vector<std::string> downSql;
-
         for (size_t i = 0; i < oldSchema.size(); i++)
         {
             JSON oldField = oldSchema[i];
-            std::string fieldName = oldSchema["name"].get<std::string>();
+            std::string fieldName = oldField["name"].get<std::string>();
 
             if (currentFields.find(fieldName) == currentFields.end())
             {
@@ -275,7 +351,7 @@ namespace ORM
                                                                    oldField["auto_increment"].get<bool>(),
                                                                    oldField["nullable"].get<bool>(),
                                                                    oldField["unique"].get<bool>(),
-                                                                   oldField["max_lenght"].get<int>(),
+                                                                   oldField["max_length"].get<int>(), // Fix typo: max_lenght -> max_length
                                                                    oldField["default_value"].get<std::string>()})));
 
                 adapter.executeRawSQL(dropSql, {});

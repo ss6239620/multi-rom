@@ -27,7 +27,7 @@ namespace ORM
         bool auto_increment = false; /**< Indicates if the field auto increments */
         bool nullable = false;       /**< Indicates if the field can be null */
         bool unique = false;         /**< Indicates if the field has a unique constraint */
-        int max_length = 0;       /**< Maximum length for fields like strings */
+        int max_length = 0;          /**< Maximum length for fields like strings */
         std::string default_value;   /**< Default value for the field */
     };
 
@@ -132,6 +132,10 @@ namespace ORM
          * @return True if the table creation was successful, false otherwise
          */
         virtual bool createTable(const Model &model) = 0;
+
+        virtual std::string escapeString(const std::string &input) const = 0;
+
+        virtual std::string getLastError() const = 0;
 
         virtual std::string createTableSQL(const Model &model) = 0;
 

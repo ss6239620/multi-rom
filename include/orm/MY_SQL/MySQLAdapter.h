@@ -38,7 +38,7 @@ namespace ORM
         bool createTable(const Model &model) override;
         std::string createTableSQL(const Model &model) override;
         void disconnect() override;
-        std::string getLastError() const { return lastError_; }
+        std::string getLastError() const override { return lastError_; }
 
         bool executeQuery(const std::string &query, MYSQL_RES *&result);
 
@@ -71,7 +71,7 @@ namespace ORM
         }
 
         MYSQL *getConnection() const { return connection_; }
-        std::string escapeString(const std::string &input) const;
+        std::string escapeString(const std::string &input) const override;
 
     private:
         MYSQL *connection_;
