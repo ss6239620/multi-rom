@@ -31,6 +31,8 @@ namespace ORM
         std::string default_value;   /**< Default value for the field */
     };
 
+    class QueryBuilder;
+
     // Class representing a single field in a model
     class Field
     {
@@ -106,8 +108,6 @@ namespace ORM
          */
         virtual std::string getFieldValue(const std::string &fieldName) const = 0;
     };
-
-    class QueryBuilder;
 
     // Abstract base class for database adapters, providing the interface for interacting with databases
     class DatabaseAdapter

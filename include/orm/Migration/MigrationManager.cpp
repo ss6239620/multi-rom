@@ -10,6 +10,8 @@ namespace ORM
 {
     namespace fs = std::filesystem;
 
+    std::unordered_map<std::string, std::function<std::unique_ptr<MigrationInterface>()>> MigrationManager::migrationRegistry;
+
     void MigrationManager::intialize(DatabaseAdapter &adapter)
     {
         ensureMigrationTable(adapter);
@@ -17,6 +19,11 @@ namespace ORM
         // create migrations/ fireactory if it dosent exists
         if (!fs::exists("migrations"))
             fs::create_directory("migrations");
+    }
+
+    void MigrationManager::registerMigration(const std::string &version, std::function<std::unique_ptr<MigrationInterface>()> creator)
+    {
+        migrationRegistry[version] = creator;
     }
 
     void MigrationManager::migrateModel(DatabaseAdapter &adapter, const Model &model)
@@ -29,8 +36,6 @@ namespace ORM
 
         if (lastMigration.isNULL()) // first migration of the model
         {
-            std::cout << "here if 1" << std::endl;
-
             std::string version = "001_intial";
             std::vector<std::string> upSql = {adapter.createTableSQL(model)};
             std::vector<std::string> downSql = {"DROP TABLE " + tableName};
@@ -41,13 +46,9 @@ namespace ORM
         }
         else if (lastMigration["schema_hash"].get<std::string>() != schemaHash) // schema has changed need migration
         {
-            std::cout << "here else if 1" << std::endl;
             JSON old_schema = parseSchemaJSON(lastMigration["schema_json"].get<std::string>());
 
-            std::cout << "here else if 2" << std::endl;
-
             std::string version = generateVersionNumber();
-            std::cout << "here else if 3" << std::endl;
             std::string migrationName = version + "_after_" + tableName;
 
             // already generated upsql and downsql when create schema
@@ -55,15 +56,11 @@ namespace ORM
             std::vector<std::string> downsql;
 
             // compare schema and genearet alter statements
-            std::cout << "here else if 3.1" << std::endl;
             compareAndUpdateSchema(adapter, model, old_schema, upsql, downsql);
-            std::cout << "here else if 4" << std::endl;
 
             createMigrationFile(migrationName, upsql, downsql);
-            std::cout << "here else if 5" << std::endl;
 
             createMigrationRecord(adapter, tableName, schemaHash, schemaJSON, version);
-            std::cout << "here else if 6" << std::endl;
         }
     }
 
@@ -73,7 +70,10 @@ namespace ORM
         std::ofstream file("migrations/" + name + ".cpp");
 
         file << "#include \"MigrationManager.h\"\n";
-        file << "#include \"DatabaseTypes.h\"\n";
+        file << "#include \"DatabaseTypes.h\"\n\n";
+
+        file << "using namespace ORM;\n\n";
+
         file << "class Migration_" << name << " : public ORM::MigrationInterface {\n";
         file << "public:\n";
 
@@ -91,13 +91,21 @@ namespace ORM
         }
         file << "     }\n";
 
-        file << "};\n";
+        file << "};\n\n";
+
+        // auto-register in registry
+        file << "static bool registered = [] {\n";
+        file << "     MigrationManager::registerMigration(\"" << name << "\",[]{\n";
+        file << "           return std::make_unique<Migration_" << name << ">();\n";
+        file << "     });\n";
+        file << "     return true;\n";
+        file << "}();\n";
     }
 
     std::string MigrationManager::getCurrentVersion(DatabaseAdapter &adapter, const std::string &modelName)
     {
         auto result = adapter.executeQuery(
-            "SELECT version FROM migrations WHERE model_name = ? ORDER BY applied_at DESC LIMIT 1",
+            "SELECT version FROM migrations WHERE model_name = ? AND is_applied = 1 ORDER BY applied_at DESC LIMIT 1",
             {modelName});
 
         if (result.empty())
@@ -183,6 +191,7 @@ namespace ORM
                     version TEXT NOT NULL,
                     schema_hash TEXT NOT NULL,
                     schema_json TEXT NOT NULL,
+                    is_applied BOOLEAN NOT NULL DEFAULT 1,
                     applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             )";
@@ -440,5 +449,146 @@ namespace ORM
     std::string MigrationManager::generateAlterDropColumn(const std::string &tableName, const std::string &columnName)
     {
         return "ALTER TABLE " + tableName + " DROP COLUMN " + columnName;
+    }
+
+    std::vector<std::pair<std::string, JSON>> MigrationManager::getAllMigration(DatabaseAdapter &adapter, const std::string &modelName)
+    {
+        auto result = adapter.executeQuery("SELECT version, schema_json FROM migrations WHERE model_name = ? ORDER BY applied_at ASC", {modelName});
+
+        std::vector<std::pair<std::string, JSON>> migrations;
+        for (const auto &row : result)
+            migrations.emplace_back(row.at("version"), parseSchemaJSON(row.at("schema_json")));
+        return migrations;
+    }
+
+    bool MigrationManager::applyMigration(DatabaseAdapter &adapter, const std::string &modelName, const std::string &version, bool up)
+    {
+        // Try both naming patterns
+        std::string fullVersionName1 = version + "_after_" + modelName;
+        std::string fullVersionName2 = version + "_create_" + modelName;
+
+        auto it = migrationRegistry.find(fullVersionName1);
+        if (it == migrationRegistry.end())
+        {
+            it = migrationRegistry.find(fullVersionName2);
+        }
+
+        if (it == migrationRegistry.end())
+        {
+            std::cerr << "Migration not registered for version: " << version
+                      << " (tried: " << fullVersionName1 << " and " << fullVersionName2 << ")" << std::endl;
+            return false;
+        }
+
+        try
+        {
+            // Update status first (mark as in progress)
+            std::string statusUpdate = up
+                                           ? "UPDATE migrations SET is_applied = 0 WHERE model_name = ? AND version = ?"
+                                           : "UPDATE migrations SET is_applied = 1 WHERE model_name = ? AND version = ?";
+
+            if (!adapter.executeRawSQL(statusUpdate, {modelName, version}))
+            {
+                throw std::runtime_error("Failed to update migration status");
+            }
+
+            // Execute migration
+            auto migration = it->second();
+            if (up)
+            {
+                migration->up(adapter);
+            }
+            else
+            {
+                migration->down(adapter);
+            }
+
+            // Finalize status
+            std::string finalizeUpdate = up
+                                             ? "UPDATE migrations SET is_applied = 1, applied_at = CURRENT_TIMESTAMP WHERE model_name = ? AND version = ?"
+                                             : "UPDATE migrations SET is_applied = 0, applied_at = CURRENT_TIMESTAMP WHERE model_name = ? AND version = ?";
+
+            return adapter.executeRawSQL(finalizeUpdate, {modelName, version});
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Migration failed: " << e.what() << std::endl;
+            // Revert status on failure
+            adapter.executeRawSQL(
+                "UPDATE migrations SET is_applied = ? WHERE model_name = ? AND version = ?",
+                {up ? "0" : "1", modelName, version});
+            return false;
+        }
+    }
+
+    bool MigrationManager::migrateToVersion(DatabaseAdapter &adapter, const std::string &modelName, const std::string &targetVersion)
+    {
+        try
+        {
+            std::string currentVersion = getCurrentVersion(adapter, modelName);
+            auto allMigrations = getAllMigration(adapter, modelName);
+
+            if (currentVersion == targetVersion)
+            {
+                std::cout << "Already at target version: " << targetVersion << std::endl;
+                return true;
+            }
+
+            // Find positions in the migration sequence
+            auto currentIt = allMigrations.begin();
+            if (!currentVersion.empty())
+            {
+                currentIt = std::find_if(allMigrations.begin(), allMigrations.end(),
+                                         [&currentVersion](const auto &m)
+                                         { return m.first == currentVersion; });
+                if (currentIt == allMigrations.end())
+                {
+                    throw std::runtime_error("Current version " + currentVersion + " not found in migration history");
+                }
+            }
+
+            auto targetIt = std::find_if(allMigrations.begin(), allMigrations.end(),
+                                         [&targetVersion](const auto &m)
+                                         { return m.first == targetVersion; });
+            if (targetIt == allMigrations.end())
+            {
+                throw std::runtime_error("Target version " + targetVersion + " not found in migration history");
+            }
+
+            // Migrate forward
+            if (currentIt < targetIt)
+            {
+                std::cout << "Migrating forward from " << currentVersion << " to " << targetVersion << std::endl;
+                for (auto it = currentIt; it != targetIt; ++it)
+                {
+                    std::cout << "Applying migration: " << it->first << std::endl;
+                    if (!applyMigration(adapter, modelName, it->first, true))
+                    {
+                        throw std::runtime_error("Failed to apply migration: " + it->first);
+                    }
+                }
+            }
+            // Migrate backward
+            else if (currentIt > targetIt)
+            {
+                std::cout << "Migrating backward from " << currentVersion << " to " << targetVersion << std::endl;
+                // Need to start from currentIt-1 because we want to roll back the current migration first
+                for (auto it = std::prev(currentIt); it >= targetIt; --it)
+                {
+                    std::cout << "Reverting migration: " << it->first << std::endl;
+                    if (!applyMigration(adapter, modelName, it->first, false))
+                    {
+                        throw std::runtime_error("Failed to revert migration: " + it->first);
+                    }
+                }
+            }
+
+            return true;
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "Migration failed: " << e.what() << std::endl;
+            return false;
+        }
     }
 }

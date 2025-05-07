@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <memory>
 #include <ctime>
+#include <functional>
 
 namespace ORM
 {
@@ -30,6 +31,8 @@ namespace ORM
         // Intialize the migration system
         static void intialize(DatabaseAdapter &adapter);
 
+        static void registerMigration(const std::string &version, std::function<std::unique_ptr<MigrationInterface>()> creator);
+
         // main migration method
         static void migrateModel(DatabaseAdapter &adapter, const Model &model);
 
@@ -38,9 +41,12 @@ namespace ORM
 
         // version control
         static std::string getCurrentVersion(DatabaseAdapter &adapter, const std::string &modelName);
+        // migrating to specfic version
         static bool migrateToVersion(DatabaseAdapter &adater, const std::string &modelName, const std::string &targetVersion);
 
     private:
+        static std::unordered_map<std::string, std::function<std::unique_ptr<MigrationInterface>()>> migrationRegistry;
+
         // schema opertaions
         static std::string claculateSchemaHash(const Model &model);
         static JSON generateSchemaJSON(const Model &model);
@@ -66,5 +72,9 @@ namespace ORM
         static std::string generateAlterAddColumn(const std::string &tableName, const Field &field);
         static std::string generateAlterModifyColumn(const std::string &tableName, const Field &field);
         static std::string generateAlterDropColumn(const std::string &tableName, const std::string &columnName);
+
+        // migrating to specfic helper function
+        static std::vector<std::pair<std::string, JSON>> getAllMigration(DatabaseAdapter &adapter, const std::string &modelName);
+        static bool applyMigration(DatabaseAdapter &adapter, const std::string &modelName, const std::string &version, bool up);
     };
 }

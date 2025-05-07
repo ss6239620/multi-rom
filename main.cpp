@@ -1,7 +1,7 @@
-#include "MySQLAdapter.h"
-#include "ModelMacros.h"
+#include <MySQLAdapter.h>
+#include <ModelMacros.h>
 #include <iostream>
-#include "MigrationManager.h"
+#include <MigrationManager.h>
 
 BEGIN_MODEL_DEFINITION(User, "users")
 FIELD(id, INTEGER, .primary_key = true, .auto_increment = true)
@@ -37,9 +37,15 @@ int main()
 
     ORM::MigrationManager::intialize(adapter);
 
-    // Create and migrate your model
     User userModel;
+
     ORM::MigrationManager::migrateModel(adapter, userModel);
+
+    adapter.insert<User>({
+        {"username", "ss6239630"},
+        {"email","ss6336@gmail.com"},
+        {"created_at", getCurrentDateTime()},
+    });
 
     adapter.disconnect();
 

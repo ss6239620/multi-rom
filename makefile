@@ -13,6 +13,10 @@ MYSQL_SRC_DIR = $(ORM_DIR)/MY_SQL
 UTILS_DIR = $(INC_DIR)/orm/utils
 MIGRATION_DIR = $(INC_DIR)/orm/Migration
 SERIALIZER_SRC_DIR = $(INC_DIR)/serializer
+GEN_MIGRATION_DIR = migrations
+
+GEN_MIGRATION_SRCS = $(wildcard $(GEN_MIGRATION_DIR)/*.cpp)
+GEN_MIGRATION_OBJS = $(patsubst $(GEN_MIGRATION_DIR)/%.cpp,$(BUILD_DIR)/migrations/%.o,$(GEN_MIGRATION_SRCS))
 
 UTILS_SRCS = $(wildcard $(UTILS_DIR)/*.cpp)
 UTILS_OBJS = $(patsubst $(UTILS_DIR)/%.cpp,$(BUILD_DIR)/utils/%.o,$(UTILS_SRCS))
@@ -32,7 +36,7 @@ MAIN_OBJS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(MAIN_SRCS))
 MYSQL_OBJS = $(patsubst $(MYSQL_SRC_DIR)/%.cpp,$(BUILD_DIR)/orm/MY_SQL/%.o,$(MYSQL_SRCS))
 SERIALIZER_OBJS = $(patsubst $(SERIALIZER_SRC_DIR)/%.cpp,$(BUILD_DIR)/serializer/%.o,$(SERIALIZER_SRCS))
 
-OBJS = $(MAIN_OBJS) $(MYSQL_OBJS) $(SERIALIZER_OBJS) $(UTILS_OBJS) $(MIGRATION_OBJS)
+OBJS = $(MAIN_OBJS) $(MYSQL_OBJS) $(SERIALIZER_OBJS) $(UTILS_OBJS) $(MIGRATION_OBJS) $(GEN_MIGRATION_OBJS)
 
 TARGET = $(BIN_DIR)/orm_demo
 
@@ -64,6 +68,11 @@ $(BUILD_DIR)/utils/%.o: $(UTILS_DIR)/%.cpp
 
 # Compile migrations source
 $(BUILD_DIR)/Migrations/%.o: $(MIGRATION_DIR)/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+# Compile generated migration files
+$(BUILD_DIR)/migrations/%.o: $(GEN_MIGRATION_DIR)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
