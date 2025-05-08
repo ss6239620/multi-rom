@@ -3,7 +3,7 @@
 ---
 
 <p align="center">
-  <img src="/asset/multi-orm-logo.png" width="300" height="150" alt="Logo" />
+  <img src="/asset/multi-orm-logo.png" width="300"  alt="Logo" />
 </p>
 
 ---
