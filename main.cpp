@@ -41,12 +41,6 @@ int main()
 
     ORM::MigrationManager::migrateModel(adapter, userModel);
 
-    adapter.insert<User>({
-        {"username", "ss6239630"},
-        {"email","ss6336@gmail.com"},
-        {"created_at", getCurrentDateTime()},
-    });
-
     adapter.disconnect();
 
     return 0;
