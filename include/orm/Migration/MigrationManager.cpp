@@ -105,15 +105,20 @@ namespace ORM
     std::string MigrationManager::getCurrentVersion(DatabaseAdapter &adapter, const std::string &modelName)
     {
         auto result = adapter.executeQuery(
+            "SELECT version FROM migrations WHERE model_name = ? AND is_current = 1 LIMIT 1",
+            {modelName});
+
+        if (!result.empty())
+        {
+            return result[0]["version"];
+        }
+
+        // If no current version marked, get the last applied version
+        result = adapter.executeQuery(
             "SELECT version FROM migrations WHERE model_name = ? AND is_applied = 1 ORDER BY applied_at DESC LIMIT 1",
             {modelName});
 
-        if (result.empty())
-        {
-            return ""; // No migrations applied yet
-        }
-
-        return result[0]["version"];
+        return result.empty() ? "" : result[0]["version"];
     }
 
     std::string MigrationManager::claculateSchemaHash(const Model &model)
@@ -192,6 +197,7 @@ namespace ORM
                     schema_hash TEXT NOT NULL,
                     schema_json TEXT NOT NULL,
                     is_applied BOOLEAN NOT NULL DEFAULT 1,
+                    is_current BOOLEAN NOT NULL DEFAULT 0,
                     applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             )";
@@ -217,6 +223,13 @@ namespace ORM
 
     void MigrationManager::createMigrationRecord(DatabaseAdapter &adapter, const std::string &tableName, const std::string &hash, const JSON &schemaJSON, const std::string &version)
     {
+        // First, clear any current flags for this model
+        std::string clearCurrentQuery = "UPDATE migrations SET is_current = 0 WHERE model_name = ?";
+
+        if (!adapter.executeRawSQL(clearCurrentQuery, {tableName}))
+        {
+            throw std::runtime_error("Failed to clear current versions flags.");
+        }
 
         // Validate schemaJSON before storing
         if (!schemaJSON.isArray())
@@ -236,8 +249,8 @@ namespace ORM
         std::string escapedHash = adapter.escapeString(hash);
         std::string escapedSchema = adapter.escapeString(JSON::stringify(schemaJSON));
 
-        std::string query = "INSERT INTO migrations (model_name,version,schema_hash,schema_json) VALUES ('" +
-                            escapedModelName + "','" + escapedVersion + "','" + escapedHash + "','" + escapedSchema + "')";
+        std::string query = "INSERT INTO migrations (model_name, version, schema_hash, schema_json, is_current) VALUES ('" +
+                            escapedModelName + "','" + escapedVersion + "','" + escapedHash + "','" + escapedSchema + "', 1)";
 
         if (!adapter.executeRawSQL(query, {}))
         {
@@ -248,8 +261,16 @@ namespace ORM
     JSON MigrationManager::getLastMigration(DatabaseAdapter &adapter, const std::string &tableName)
     {
         auto result = adapter.executeQuery(
-            "SELECT schema_hash,schema_json FROM migrations where model_name = ? ORDER BY applied_at DESC LIMIT 1", {tableName});
+            "SELECT schema_hash, schema_json FROM migrations WHERE model_name = ? AND is_current = 1 LIMIT 1", {tableName});
 
+        if (result.empty())
+        {
+            // If no current version marked, get the last applied migration
+            result = adapter.executeQuery(
+                "SELECT schema_hash, schema_json FROM migrations WHERE model_name = ? AND is_applied = 1 "
+                "ORDER BY applied_at DESC LIMIT 1",
+                {tableName});
+        }
         if (result.empty())
             return JSON();
 
@@ -484,8 +505,8 @@ namespace ORM
         {
             // Update status first (mark as in progress)
             std::string statusUpdate = up
-                                           ? "UPDATE migrations SET is_applied = 0 WHERE model_name = ? AND version = ?"
-                                           : "UPDATE migrations SET is_applied = 1 WHERE model_name = ? AND version = ?";
+                                           ? "UPDATE migrations SET is_applied = 1 WHERE model_name = ? AND version = ?"
+                                           : "UPDATE migrations SET is_applied = 0 WHERE model_name = ? AND version = ?";
 
             if (!adapter.executeRawSQL(statusUpdate, {modelName, version}))
             {
@@ -502,13 +523,7 @@ namespace ORM
             {
                 migration->down(adapter);
             }
-
-            // Finalize status
-            std::string finalizeUpdate = up
-                                             ? "UPDATE migrations SET is_applied = 1, applied_at = CURRENT_TIMESTAMP WHERE model_name = ? AND version = ?"
-                                             : "UPDATE migrations SET is_applied = 0, applied_at = CURRENT_TIMESTAMP WHERE model_name = ? AND version = ?";
-
-            return adapter.executeRawSQL(finalizeUpdate, {modelName, version});
+            return true;
         }
         catch (const std::exception &e)
         {
@@ -550,16 +565,23 @@ namespace ORM
             auto targetIt = std::find_if(allMigrations.begin(), allMigrations.end(),
                                          [&targetVersion](const auto &m)
                                          { return m.first == targetVersion; });
+
             if (targetIt == allMigrations.end())
             {
                 throw std::runtime_error("Target version " + targetVersion + " not found in migration history");
+            }
+
+            // First clear any current flags for this model
+            if (!adapter.executeRawSQL("UPDATE migrations SET is_current = 0 WHERE model_name = ?", {modelName}))
+            {
+                throw std::runtime_error("Failed to clear current version flags.");
             }
 
             // Migrate forward
             if (currentIt < targetIt)
             {
                 std::cout << "Migrating forward from " << currentVersion << " to " << targetVersion << std::endl;
-                for (auto it = currentIt; it != targetIt; ++it)
+                for (auto it = currentIt; it <= targetIt; ++it)
                 {
                     std::cout << "Applying migration: " << it->first << std::endl;
                     if (!applyMigration(adapter, modelName, it->first, true))
@@ -573,7 +595,7 @@ namespace ORM
             {
                 std::cout << "Migrating backward from " << currentVersion << " to " << targetVersion << std::endl;
                 // Need to start from currentIt-1 because we want to roll back the current migration first
-                for (auto it = std::prev(currentIt); it >= targetIt; --it)
+                for (auto it = currentIt; it >= targetIt; --it)
                 {
                     std::cout << "Reverting migration: " << it->first << std::endl;
                     if (!applyMigration(adapter, modelName, it->first, false))
@@ -582,7 +604,12 @@ namespace ORM
                     }
                 }
             }
-
+            // After changes, set the target version as current
+            if (!adapter.executeRawSQL("UPDATE migrations SET is_current = 1 WHERE model_name = ? AND version = ?",
+                                       {modelName, targetVersion}))
+            {
+                throw std::runtime_error("Failed to set to current target version as current.");
+            }
             return true;
         }
         catch (const std::exception &e)
