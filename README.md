@@ -170,11 +170,11 @@ try {
 class CustomMigration : public ORM::MigrationInterface {
 public:
     void up(DatabaseAdapter &adapter) override {
-        adapter.executeRawSQL("ALTER TABLE users ADD COLUMN last_login DATETIME", {});
+        adapter.executeRawQuery("ALTER TABLE users ADD COLUMN last_login DATETIME", {});
     }
     
     void down(DatabaseAdapter &adapter) override {
-        adapter.executeRawSQL("ALTER TABLE users DROP COLUMN last_login", {});
+        adapter.executeRawQuery("ALTER TABLE users DROP COLUMN last_login", {});
     }
 };
 

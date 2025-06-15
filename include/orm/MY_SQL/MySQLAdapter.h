@@ -36,7 +36,7 @@ namespace ORM
         bool connect(const std::string &host, const std::string &user,
                      const std::string &password, const std::string &dbname) override;
         bool createTable(const Model &model) override;
-        std::string createTableSQL(const Model &model) override;
+        std::string getCreateTableSTring(const Model &model) override;
         void disconnect() override;
         std::string getLastError() const override { return lastError_; }
 
@@ -45,7 +45,7 @@ namespace ORM
         std::vector<std::map<std::string, std::string>> executeQuery(
             const std::string &query, const std::vector<std::string> &params) override;
 
-        bool executeRawSQL(
+        bool executeRawQuery(
             const std::string &query, const std::vector<std::string> &params) override;
 
         std::vector<std::map<std::string, std::string>> fetchAllFromQuery(const std::string &query) override;

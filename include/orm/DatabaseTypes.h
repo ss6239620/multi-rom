@@ -137,12 +137,12 @@ namespace ORM
 
         virtual std::string getLastError() const = 0;
 
-        virtual std::string createTableSQL(const Model &model) = 0;
+        virtual std::string getCreateTableSTring(const Model &model) = 0;
 
         virtual std::vector<std::map<std::string, std::string>> executeQuery(
             const std::string &query, const std::vector<std::string> &params) = 0;
 
-        virtual bool executeRawSQL(
+        virtual bool executeRawQuery(
             const std::string &query, const std::vector<std::string> &params) = 0;
 
         /**

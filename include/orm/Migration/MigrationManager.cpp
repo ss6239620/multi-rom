@@ -37,7 +37,7 @@ namespace ORM
         if (lastMigration.isNULL()) // first migration of the model
         {
             std::string version = "001_intial";
-            std::vector<std::string> upSql = {adapter.createTableSQL(model)};
+            std::vector<std::string> upSql = {adapter.getCreateTableSTring(model)};
             std::vector<std::string> downSql = {"DROP TABLE " + tableName};
 
             createMigrationFile(version + "_create_" + tableName, upSql, downSql);
@@ -80,14 +80,14 @@ namespace ORM
         file << "     void up(ORM::DatabaseAdapter &adapter) override { \n";
         for (const auto &sql : upSql)
         {
-            file << "         adapter.executeRawSQL(\"" << sql << "\",{});\n";
+            file << "         adapter.executeRawQuery(\"" << sql << "\",{});\n";
         }
         file << "     }\n\n";
 
         file << "      void down(ORM::DatabaseAdapter &adapter) override { \n";
         for (const auto &sql : downSql)
         {
-            file << "         adapter.executeRawSQL(\"" << sql << "\",{});\n";
+            file << "         adapter.executeRawQuery(\"" << sql << "\",{});\n";
         }
         file << "     }\n";
 
@@ -201,7 +201,7 @@ namespace ORM
                     applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             )";
-            if (!adapter.executeRawSQL(query, {}))
+            if (!adapter.executeRawQuery(query, {}))
             {
                 throw std::runtime_error("Failed to execute migrations table creation SQL");
             }
@@ -226,7 +226,7 @@ namespace ORM
         // First, clear any current flags for this model
         std::string clearCurrentQuery = "UPDATE migrations SET is_current = 0 WHERE model_name = ?";
 
-        if (!adapter.executeRawSQL(clearCurrentQuery, {tableName}))
+        if (!adapter.executeRawQuery(clearCurrentQuery, {tableName}))
         {
             throw std::runtime_error("Failed to clear current versions flags.");
         }
@@ -252,7 +252,7 @@ namespace ORM
         std::string query = "INSERT INTO migrations (model_name, version, schema_hash, schema_json, is_current) VALUES ('" +
                             escapedModelName + "','" + escapedVersion + "','" + escapedHash + "','" + escapedSchema + "', 1)";
 
-        if (!adapter.executeRawSQL(query, {}))
+        if (!adapter.executeRawQuery(query, {}))
         {
             throw std::runtime_error("Failed to insert record in migrations table.");
         }
@@ -316,7 +316,7 @@ namespace ORM
                 std::string alterSql = generateAlterAddColumn(tableName, *field);
                 upSql.push_back(alterSql);
                 downSql.push_back(generateAlterDropColumn(tableName, fieldName));
-                adapter.executeRawSQL(alterSql, {});
+                adapter.executeRawQuery(alterSql, {});
             }
 
             else
@@ -341,7 +341,7 @@ namespace ORM
                                                                           oldField["unique"].get<bool>(),
                                                                           oldField["max_length"].get<int>(),
                                                                           oldField["default_value"].get<std::string>()})));
-                    adapter.executeRawSQL(modifySql, {});
+                    adapter.executeRawQuery(modifySql, {});
                 }
             }
         }
@@ -384,7 +384,7 @@ namespace ORM
                                                                    oldField["max_length"].get<int>(), // Fix typo: max_lenght -> max_length
                                                                    oldField["default_value"].get<std::string>()})));
 
-                adapter.executeRawSQL(dropSql, {});
+                adapter.executeRawQuery(dropSql, {});
             }
         }
     }
@@ -508,7 +508,7 @@ namespace ORM
                                            ? "UPDATE migrations SET is_applied = 1 WHERE model_name = ? AND version = ?"
                                            : "UPDATE migrations SET is_applied = 0 WHERE model_name = ? AND version = ?";
 
-            if (!adapter.executeRawSQL(statusUpdate, {modelName, version}))
+            if (!adapter.executeRawQuery(statusUpdate, {modelName, version}))
             {
                 throw std::runtime_error("Failed to update migration status");
             }
@@ -529,7 +529,7 @@ namespace ORM
         {
             std::cerr << "Migration failed: " << e.what() << std::endl;
             // Revert status on failure
-            adapter.executeRawSQL(
+            adapter.executeRawQuery(
                 "UPDATE migrations SET is_applied = ? WHERE model_name = ? AND version = ?",
                 {up ? "0" : "1", modelName, version});
             return false;
@@ -572,7 +572,7 @@ namespace ORM
             }
 
             // First clear any current flags for this model
-            if (!adapter.executeRawSQL("UPDATE migrations SET is_current = 0 WHERE model_name = ?", {modelName}))
+            if (!adapter.executeRawQuery("UPDATE migrations SET is_current = 0 WHERE model_name = ?", {modelName}))
             {
                 throw std::runtime_error("Failed to clear current version flags.");
             }
@@ -605,7 +605,7 @@ namespace ORM
                 }
             }
             // After changes, set the target version as current
-            if (!adapter.executeRawSQL("UPDATE migrations SET is_current = 1 WHERE model_name = ? AND version = ?",
+            if (!adapter.executeRawQuery("UPDATE migrations SET is_current = 1 WHERE model_name = ? AND version = ?",
                                        {modelName, targetVersion}))
             {
                 throw std::runtime_error("Failed to set to current target version as current.");

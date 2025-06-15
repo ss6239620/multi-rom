@@ -132,7 +132,7 @@ namespace ORM
         return true;
     }
 
-    std::string MySQLAdapter::createTableSQL(const Model &model)
+    std::string MySQLAdapter::getCreateTableSTring(const Model &model)
     {
         std::string query = "CREATE TABLE IF NOT EXISTS " + model.getTableName() + " (";
         bool first = true;
@@ -275,7 +275,7 @@ namespace ORM
         return mysql_stmt_bind_param(stmt, bind.data()) == 0;
     }
 
-    bool MySQLAdapter::executeRawSQL(const std::string &query, const std::vector<std::string> &params)
+    bool MySQLAdapter::executeRawQuery(const std::string &query, const std::vector<std::string> &params)
     {
         MYSQL_STMT *stmt = mysql_stmt_init(connection_);
         if (!stmt)
