@@ -6,7 +6,7 @@
 
 namespace ORM
 {
-    MySQLAdapter::MySQLAdapter() : connection_(nullptr) {}
+    MySQLAdapter::MySQLAdapter() : connection_(nullptr),queryBuilder_(nullptr) {}
 
     MySQLAdapter::~MySQLAdapter()
     {
@@ -21,6 +21,7 @@ namespace ORM
             lastError_ = "MySQL initialization failed";
             return false;
         }
+        queryBuilder_ = MySQLQueryBuilder(connection_);
 
         if (!mysql_real_connect(connection_, host.c_str(), user.c_str(),
                                 password.c_str(), dbname.c_str(), 0, nullptr, 0))
@@ -374,7 +375,6 @@ namespace ORM
     {
         std::vector<std::map<std::string, std::string>> rows;
         MYSQL_RES *result = nullptr;
-        JSON res;
         if (!executeQuery(query, result))
         {
             return rows; // unsuccsessfull

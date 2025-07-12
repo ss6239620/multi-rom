@@ -9,4 +9,6 @@ std::string getCurrentDateTime();
 
 void printRows(const std::vector<std::map<std::string, std::string>> &rows);
 
+void printRow(const std::map<std::string, std::string> &row);
+
 JSON serializationTOJSONNode(std::vector<std::map<std::string, std::string>> &rows);

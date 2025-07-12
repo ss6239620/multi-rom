@@ -7,26 +7,6 @@
 
 namespace ORM
 {
-    class MySQLAdapter;
-
-    template <typename ModelType>
-    class ModelQuery
-    {
-    public:
-        ModelQuery(MySQLAdapter *adapter, const std::string &operation);
-        ModelQuery &where(const std::string &condition);
-        ModelQuery &join(const std::string &table, const std::string &condition, const std::string &type = "INNER");
-        ModelQuery &set(const std::map<std::string, std::string> &fields);
-
-        bool execute();
-
-    private:
-        MySQLAdapter *adapter_;
-        MySQLQueryBuilder builder_;
-        std::string operation_;
-        std::vector<std::string> setClauses_;
-    };
-
     class MySQLAdapter : public DatabaseAdapter
     {
     public:
@@ -55,27 +35,77 @@ namespace ORM
             return std::make_unique<MySQLQueryBuilder>(connection_);
         }
 
+        MYSQL *getConnection() const { return connection_; }
+        std::string escapeString(const std::string &input) const override;
+
+        // Insert operations
         template <typename ModelType>
         bool insert(const std::map<std::string, std::string> &fields);
 
         template <typename ModelType>
-        ModelQuery<ModelType> update()
-        {
-            return ModelQuery<ModelType>(this, "UPDATE");
-        }
+        bool bulkInsert(const std::vector<std::map<std::string, std::string>> &entities);
+
+        // select operations
+        template <typename ModelType>
+        std::vector<std::map<std::string, std::string>> find();
 
         template <typename ModelType>
-        ModelQuery<ModelType> delete_()
-        {
-            return ModelQuery<ModelType>(this, "DELETE");
-        }
+        std::map<std::string, std::string> findOne(const std::string &condition);
 
-        MYSQL *getConnection() const { return connection_; }
-        std::string escapeString(const std::string &input) const override;
+        template <typename ModelType>
+        std::map<std::string, std::string> findById(const std::string &id);
+
+        template <typename ModelType>
+        std::vector<std::map<std::string, std::string>> findBy(const std::string &condition);
+
+        template <typename ModelType>
+        std::pair<std::vector<std::map<std::string, std::string>>, int> findAndCount();
+
+        template <typename ModelType>
+        bool exists(const std::string &condition);
+
+        template <typename ModelType>
+        int count(const std::string &condition);
+
+        // Update Operations
+        template <typename ModelType>
+        bool update(const std::map<std::string, std::string> &critria, const std::map<std::string, std::string> &partialEntity);
+
+        template <typename ModelType>
+        bool updateById(const std::string &id, const std::map<std::string, std::string> &partialEntity);
+
+        template <typename ModelType>
+        ModelType create(const std::initializer_list<std::pair<std::string, std::string>> &fields);
+
+        template <typename ModelType>
+        bool save(const ModelType &entity);
+
+        template <typename ModelType>
+        bool bulkUpddate(const std::map<std::string, std::string> &critria, const std::map<std::string, std::string> &updates);
+
+        template <typename ModelType>
+        bool increment(const std::string &field, int value, const std::string &condition = "");
+
+        template <typename ModelType>
+        bool decrement(const std::string &field, int value, const std::string &condition = "");
+
+        // Update Operations
+        template <typename ModelType>
+        bool delete_(const std::map<std::string, std::string> &critria);
+
+        template <typename ModelType>
+        bool deleteById(const std::string &id);
+
+        template <typename ModelType>
+        bool softDelete(const std::map<std::string, std::string> &critria, const std::string &deleteColumn = "is_deleted");
+
+        template <typename ModelType>
+        bool remove(const ModelType &entity);
 
     private:
         MYSQL *connection_;
         std::string lastError_;
+        MySQLQueryBuilder queryBuilder_;
 
         std::string getTypeString(FieldType type, const FieldOptions &options) const;
         bool insertRecord(const Model &model) override;

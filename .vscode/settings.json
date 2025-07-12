@@ -75,6 +75,7 @@
         "format": "cpp",
         "span": "cpp",
         "variant": "cpp",
-        "unordered_set": "cpp"
+        "unordered_set": "cpp",
+        "ciso646": "cpp"
     }
 }

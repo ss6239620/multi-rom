@@ -287,7 +287,24 @@ namespace ORM
             }
         }
         query += ";";
+
+        reset();
         return query;
+    }
+
+    void MySQLQueryBuilder::reset()
+    {
+        selectColumns_.clear();
+        fromTable_.clear();
+        joinClauses_.clear();
+        whereClauses_.clear();
+        groupByColumns_.clear();
+        havingclause_.clear();
+        orderByClauses_.clear();
+        aliasMap_.clear();
+        lastAlias_.clear();
+        limit_ = -1;
+        offset_ = -1;
     }
 
     std::string MySQLQueryBuilder::escapeString(const std::string &input) const

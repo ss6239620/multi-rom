@@ -43,6 +43,8 @@ namespace ORM
 
         std::string build() override;
 
+        void reset() override;
+
         const std::vector<std::string> &getWhereClause() const { return whereClauses_; }
         const std::vector<std::string> &getJoinClause() const { return joinClauses_; }
         const std::vector<std::string> &getOrderByClause() const { return orderByClauses_; }

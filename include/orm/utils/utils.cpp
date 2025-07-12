@@ -50,6 +50,43 @@ void printRows(const std::vector<std::map<std::string, std::string>> &rows)
     }
 }
 
+void printRow(const std::map<std::string, std::string> &row)
+{
+    if (row.empty())
+    {
+        std::cout << "No row found." << std::endl;
+        return;
+    }
+    // Get headers from first row
+    std::vector<std::string> headers;
+    for (const auto &pair : row)
+    {
+        headers.push_back(pair.first);
+    }
+    // print headers
+    for (const auto &header : headers)
+    {
+        std::cout << std::setw(15) << std::left << header;
+    }
+    std::cout << "\n";
+
+    // print seperator
+    for (size_t i = 0; i < headers.size(); i++)
+    {
+        std::cout << std::string(15, '-');
+    }
+    std::cout << "\n";
+
+    // print rows
+    for (const auto &header : headers)
+    {
+        auto it = row.find(header);
+        std::string value = (it != row.end()) ? it->second : "";
+        std::cout << std::setw(15) << std::left << value;
+    }
+    std::cout << "\n";
+}
+
 JSON serializationTOJSONNode(std::vector<std::map<std::string, std::string>> &rows)
 {
     JSON jsonArray(JSONType::ARRAY);

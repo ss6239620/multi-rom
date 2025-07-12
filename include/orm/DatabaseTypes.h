@@ -203,5 +203,7 @@ namespace ORM
 
         // Execution
         virtual std::string build() = 0;
+
+        virtual void reset() = 0;
     };
 }
